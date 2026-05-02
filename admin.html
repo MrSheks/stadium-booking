@@ -2,31 +2,35 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Admin Master | Edit Capability</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel | Stadium System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        .status-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; }
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 50; }
+        body { display: none; } /* مخفي حتى نجاح الدخول */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 100; }
         .modal.active { display: flex; }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen p-6 md:p-12 font-sans">
+<body class="bg-slate-100 min-h-screen p-4 md:p-10 font-sans text-slate-800">
 
-    <div class="max-w-7xl mx-auto">
-        <header class="flex justify-between items-center mb-12">
-            <h1 class="text-4xl font-black text-slate-900 tracking-tighter uppercase italic">Control Panel</h1>
-            <input id="search" onkeyup="filter()" type="text" placeholder="Search..." class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 w-96 font-bold outline-none">
+    <div class="max-w-6xl mx-auto">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div>
+                <h1 class="text-4xl font-black text-slate-900 tracking-tighter italic uppercase">Admin Panel</h1>
+                <a href="index.html" class="text-indigo-600 text-xs font-black uppercase tracking-widest hover:underline italic mt-1 inline-block">⬅ Back to Booking</a>
+            </div>
+            <input id="search" onkeyup="filter()" type="text" placeholder="Search..." class="bg-white p-4 rounded-2xl shadow-sm border-none w-full md:w-80 font-bold outline-none focus:ring-2 focus:ring-indigo-500">
         </header>
 
-        <div class="bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100">
-            <table class="w-full text-left">
-                <thead class="bg-slate-50 border-b">
+        <div class="bg-white rounded-[2.5rem] shadow-2xl overflow-x-auto border border-slate-200">
+            <table class="w-full text-left min-w-[700px]">
+                <thead class="bg-slate-50 border-b border-slate-100">
                     <tr>
-                        <th class="p-6 text-[10px] font-black text-slate-400 uppercase">Booking #</th>
+                        <th class="p-6 text-[10px] font-black text-slate-400 uppercase">ID</th>
                         <th class="p-6 text-[10px] font-black text-slate-400 uppercase">Customer</th>
-                        <th class="p-6 text-[10px] font-black text-slate-400 uppercase">Reserveration Info</th>
-                        <th class="p-6 text-right">Actions</th>
+                        <th class="p-6 text-[10px] font-black text-slate-400 uppercase">Schedule</th>
+                        <th class="p-6 text-right text-[10px] font-black text-slate-400 uppercase px-10">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody" class="divide-y divide-slate-50"></tbody>
@@ -34,68 +38,106 @@
         </div>
     </div>
 
-    <!-- EDIT MODAL -->
+    <!-- Edit Modal -->
     <div id="editModal" class="modal">
-        <div class="bg-white p-8 rounded-[2rem] w-full max-w-md shadow-2xl">
-            <h2 class="text-xl font-black mb-6 uppercase italic">Edit Reservation #<span id="editIdDisplay"></span></h2>
+        <div class="bg-white p-8 rounded-[2.5rem] w-full max-w-md shadow-2xl mx-4">
+            <h2 class="text-2xl font-black mb-6 italic uppercase">Edit Booking #<span id="editIdDisplay" class="text-indigo-600"></span></h2>
             <input type="hidden" id="editBookingId">
-            <div class="grid gap-4">
-                <input id="editDate" type="date" class="p-4 bg-slate-50 border rounded-xl font-bold outline-none w-full">
+            <div class="grid gap-4 text-left">
+                <input id="editDate" type="date" class="p-4 bg-slate-50 border rounded-2xl font-bold w-full outline-none">
                 <div class="flex gap-2">
-                    <input id="editStart" type="time" class="p-4 bg-slate-50 border rounded-xl font-bold outline-none w-1/2">
-                    <input id="editEnd" type="time" class="p-4 bg-slate-50 border rounded-xl font-bold outline-none w-1/2">
+                    <input id="editStart" type="time" class="p-4 bg-slate-50 border rounded-2xl font-bold w-1/2 outline-none">
+                    <input id="editEnd" type="time" class="p-4 bg-slate-50 border rounded-2xl font-bold w-1/2 outline-none">
                 </div>
-                <select id="editStadium" class="p-4 bg-slate-50 border rounded-xl font-bold outline-none w-full"></select>
+                <select id="editStadium" class="p-4 bg-slate-50 border rounded-2xl font-bold w-full outline-none"></select>
             </div>
             <div class="flex gap-4 mt-8">
                 <button onclick="closeModal()" class="w-1/2 py-4 font-black uppercase text-slate-400">Cancel</button>
-                <button onclick="saveEdit()" class="w-1/2 py-4 bg-indigo-600 text-white rounded-xl font-black uppercase shadow-lg shadow-indigo-100">Save Changes</button>
+                <button onclick="saveEdit()" class="w-1/2 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-lg">Save</button>
             </div>
         </div>
     </div>
 
     <script>
-        const _supabase = supabase.createClient('https://zcqvtjuziiwmqilaxgvc.supabase.co', 'sb_publishable_MbdH5VHmNnIiLmGfpPaL1Q_jXNXtivr');
+        // 1. اعد التأكد من أن هذه القيم صحيحة من Supabase Settings
+        const SB_URL = 'https://zcqvtjuziiwmqilaxgvc.supabase.co';
+        const SB_KEY = 'sb_publishable_MbdH5VHmNnIiLmGfpPaL1Q_jXNXtivr';
+        
+        const _supabase = supabase.createClient(SB_URL, SB_KEY);
         let allData = [];
 
+        // 2. وظيفة التأكد من الباسورد بسحبها من الداتا بيز
+        async function authenticate() {
+            const userEntry = prompt("Access Restricted. Enter Admin Password:");
+            if (!userEntry) { window.location.href = "index.html"; return; }
+
+            try {
+                const { data, error } = await _supabase
+                    .from('admin_settings')
+                    .select('key_value')
+                    .eq('key_name', 'admin_password')
+                    .single();
+
+                if (error) {
+                    console.error("Supabase Error:", error);
+                    alert("Database Connection Error. Please run the SQL code in Supabase first.");
+                    window.location.href = "index.html";
+                    return;
+                }
+
+                if (data && userEntry === data.key_value) {
+                    document.body.style.display = "block";
+                    loadData();
+                } else {
+                    alert("Wrong Password!");
+                    window.location.href = "index.html";
+                }
+            } catch (err) {
+                alert("Critical Connection Error.");
+                window.location.href = "index.html";
+            }
+        }
+
         async function loadData() {
-            const { data } = await _supabase.from('unified_admin_view').select('*');
+            const { data, error } = await _supabase.from('unified_admin_view').select('*');
+            if (error) {
+                document.getElementById('tableBody').innerHTML = `<tr><td colspan="4" class="p-10 text-center text-red-500 font-bold">RLS Policy Error: ${error.message}</td></tr>`;
+                return;
+            }
             allData = data || [];
             render(allData);
-            
-            // Populate Stadium Dropdown in Modal once
-            if(document.getElementById('editStadium').options.length === 0) {
-                const { data: stadiums } = await _supabase.from('stadium').select('stadium_number');
-                stadiums.forEach(s => {
-                    const opt = new Option(`Stadium #${s.stadium_number}`, s.stadium_number);
-                    document.getElementById('editStadium').add(opt);
-                });
-            }
+
+            const { data: stds } = await _supabase.from('stadium').select('stadium_number');
+            const select = document.getElementById('editStadium');
+            select.innerHTML = '';
+            stds.forEach(s => select.add(new Option(`Stadium #${s.stadium_number}`, s.stadium_number)));
         }
 
         function render(records) {
             document.getElementById('tableBody').innerHTML = records.map(r => `
-                <tr class="hover:bg-slate-50/80 transition-colors">
-                    <td class="p-6 text-sm font-black text-indigo-600">#${r.booking_number}</td>
+                <tr class="hover:bg-slate-50 transition-all border-b border-slate-50">
+                    <td class="p-6 font-black text-indigo-600 italic">#${r.booking_number}</td>
                     <td class="p-6">
                         <div class="font-bold text-slate-800">${r.email}</div>
-                        <div class="text-[10px] text-slate-400 font-bold uppercase italic">${r.customer_state || 'No State'}</div>
+                        <div class="text-[9px] text-slate-400 font-black uppercase">${r.customer_state || 'City'} • ${r.gender}</div>
                     </td>
                     <td class="p-6">
-                        <div class="font-bold text-slate-700 italic">Std ${r.stadium_number} | ${r.booking_date}</div>
-                        <div class="text-xs font-bold text-slate-400">${r.booking_start} - ${r.booking_end}</div>
+                        <div class="font-bold text-slate-700 italic">Std ${r.stadium_number} • ${r.booking_date}</div>
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-tight">${r.booking_start} — ${r.booking_end}</div>
                     </td>
-                    <td class="p-6 text-right flex justify-end gap-2">
-                        <button onclick="openEdit(${JSON.stringify(r).replace(/"/g, '&quot;')})" class="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-indigo-600 hover:text-white transition-all">Edit</button>
-                        <button onclick="deepDelete(${r.customer_id})" class="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-red-600 hover:text-white transition-all">Delete</button>
+                    <td class="p-6 text-right px-10">
+                        <div class="flex justify-end gap-2">
+                            <button onclick='openEdit(${JSON.stringify(r)})' class="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-indigo-600 hover:text-white transition-all">Edit</button>
+                            <button onclick="deleteBooking(${r.customer_id})" class="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-red-600 hover:text-white transition-all">Delete</button>
+                        </div>
                     </td>
                 </tr>
             `).join('');
         }
 
         function openEdit(r) {
-            document.getElementById('editIdDisplay').innerText = r.booking_number;
             document.getElementById('editBookingId').value = r.booking_number;
+            document.getElementById('editIdDisplay').innerText = r.booking_number;
             document.getElementById('editDate').value = r.booking_date;
             document.getElementById('editStart').value = r.booking_start;
             document.getElementById('editEnd').value = r.booking_end;
@@ -108,42 +150,26 @@
         async function saveEdit() {
             const b_id = document.getElementById('editBookingId').value;
             const s_id = document.getElementById('editStadium').value;
-            const date = document.getElementById('editDate').value;
+            const d = document.getElementById('editDate').value;
             const t1 = document.getElementById('editStart').value;
             const t2 = document.getElementById('editEnd').value;
 
-            // 1. Check for overlaps (using the edit-specific function)
             const { data: check } = await _supabase.rpc('check_stadium_overlap_edit', {
-                target_booking_number: parseInt(b_id),
-                target_stadium_id: parseInt(s_id),
-                target_date: date,
-                target_start: t1,
-                target_end: t2
+                target_booking_number: parseInt(b_id), target_stadium_id: parseInt(s_id),
+                target_date: d, target_start: t1, target_end: t2
             });
 
-            if (check[0].is_booked) {
-                alert("❌ Cannot save: This stadium is already booked for the new time!");
-                return;
-            }
+            if (check[0].is_booked) { alert("Conflict: Time slot taken!"); return; }
 
-            // 2. Update Booking
-            const { error } = await _supabase.from('booking').update({
-                stadium_number: parseInt(s_id),
-                booking_date: date,
-                start_time: t1,
-                end_time: t2
+            await _supabase.from('booking').update({
+                stadium_number: parseInt(s_id), booking_date: d, start_time: t1, end_time: t2
             }).eq('booking_number', b_id);
 
-            if (error) alert(error.message);
-            else {
-                alert("✅ Booking Updated!");
-                closeModal();
-                loadData();
-            }
+            alert("Updated!"); closeModal(); loadData();
         }
 
-        async function deepDelete(cid) {
-            if (confirm("Delete full record?")) {
+        async function deleteBooking(cid) {
+            if(confirm("Delete customer?")) {
                 await _supabase.from('customer').delete().eq('customer_id', cid);
                 loadData();
             }
@@ -154,7 +180,8 @@
             render(allData.filter(r => r.email.toLowerCase().includes(q) || r.booking_date.includes(q)));
         }
 
-        window.onload = loadData;
+        // تشغيل الحماية فوراً
+        authenticate();
     </script>
 </body>
 </html>
