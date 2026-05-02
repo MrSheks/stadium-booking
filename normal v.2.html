@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stadium Booking | Full Version</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .status-dot { height: 14px; width: 14px; border-radius: 50%; display: inline-block; transition: all 0.4s ease; }
+        .dot-idle { background-color: #cbd5e1; }
+        .dot-available { background-color: #22c55e; box-shadow: 0 0 12px #22c55e; animation: pulse 2s infinite; }
+        .dot-busy { background-color: #ef4444; box-shadow: 0 0 12px #ef4444; }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-xl bg-white rounded-[3rem] shadow-2xl p-8 md:p-12 border border-slate-200">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl font-black text-slate-800 uppercase tracking-tighter italic">Reserve Stadium</h1>
+            <div class="flex items-center justify-center gap-3 mt-3 bg-slate-50 py-2 px-4 rounded-full w-max mx-auto border border-slate-100">
+                <span id="dot" class="status-dot dot-idle"></span>
+                <p id="status-msg" class="text-slate-400 text-[10px] font-black uppercase tracking-widest">Select details to check</p>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <input id="email" type="email" placeholder="Email" class="w-full p-5 bg-slate-50 border rounded-2xl font-bold outline-none border-slate-100 focus:border-indigo-500 shadow-sm">
+            <input id="pass" type="password" placeholder="Password" class="w-full p-5 bg-slate-50 border rounded-2xl font-bold outline-none border-slate-100 focus:border-indigo-500 shadow-sm">
+            <input id="phone" type="tel" placeholder="Phone" class="w-full p-5 bg-slate-50 border rounded-2xl font-bold outline-none border-slate-100 focus:border-indigo-500 shadow-sm">
+            
+            <select id="gender" class="w-full p-5 bg-slate-50 border rounded-2xl font-bold outline-none border-slate-100 shadow-sm">
+                <option value="">Gender...</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+            </select>
+
+            <input id="state" type="text" placeholder="State/City" class="w-full p-5 bg-slate-50 border rounded-2xl font-bold outline-none border-slate-100 focus:border-indigo-500 shadow-sm">
+            
+            <select id="stadium" onchange="verifyAvailability()" class="w-full p-5 bg-slate-50 border rounded-2xl font-bold outline-none border-slate-100 appearance-none shadow-sm">
+                <option value="">Select Stadium...</option>
+            </select>
+
+            <input id="date" type="date" onchange="verifyAvailability()" class="md:col-span-2 w-full p-5 bg-slate-50 border rounded-2xl font-bold outline-none border-slate-100 shadow-sm">
+
+            <div class="flex flex-col gap-1">
+                <label class="text-[9px] font-black text-slate-400 ml-2">CHECK-IN</label>
+                <input id="start" type="time" onchange="verifyAvailability()" class="w-full p-5 bg-slate-50 border rounded-2xl font-bold outline-none border-slate-100 shadow-sm">
+            </div>
+            <div class="flex flex-col gap-1">
+                <label class="text-[9px] font-black text-slate-400 ml-2">CHECK-OUT</label>
+                <input id="end" type="time" onchange="verifyAvailability()" class="w-full p-5 bg-slate-50 border rounded-2xl font-bold outline-none border-slate-100 shadow-sm">
+            </div>
+
+            <select id="pay" class="md:col-span-2 w-full p-5 bg-slate-50 border rounded-2xl font-bold outline-none border-slate-100 shadow-sm">
+                <option value="">Payment Method...</option>
+            </select>
+        </div>
+
+        <div id="price-card" class="hidden mt-8 p-6 bg-indigo-50 rounded-3xl border border-indigo-100 flex justify-between items-center">
+            <h3 id="total-price" class="text-2xl font-black text-indigo-700 tracking-tighter">0.00 EGP</h3>
+            <p id="duration-text" class="text-xs font-bold text-indigo-400 italic text-right leading-tight">0 Min</p>
+        </div>
+
+        <button id="bookBtn" onclick="book()" disabled class="w-full mt-8 bg-slate-200 text-slate-400 font-black py-6 rounded-3xl shadow-xl uppercase transition-all cursor-not-allowed">
+            Confirm Reservation
+        </button>
+    </div>
+
+    <script>
+        const _supabase = supabase.createClient('https://zcqvtjuziiwmqilaxgvc.supabase.co', 'sb_publishable_MbdH5VHmNnIiLmGfpPaL1Q_jXNXtivr');
+
+        async function init() {
+            const { data } = await _supabase.from('stadium').select('stadium_number, price_hour');
+            data.forEach(s => {
+                const opt = new Option(`Stadium #${s.stadium_number}`, s.stadium_number);
+                opt.dataset.rate = s.price_hour;
+                document.getElementById('stadium').add(opt);
+            });
+            const { data: pay } = await _supabase.from('payment_method').select('*');
+            pay.forEach(m => document.getElementById('pay').add(new Option(m.method_name, m.method_id)));
+        }
+
+        async function verifyAvailability() {
+            const s = document.getElementById('stadium').value;
+            const d = document.getElementById('date').value;
+            const t1 = document.getElementById('start').value;
+            const t2 = document.getElementById('end').value;
+            const msg = document.getElementById('status-msg');
+            const dot = document.getElementById('dot');
+            const btn = document.getElementById('bookBtn');
+
+            if (!s || !d || !t1 || !t2) return;
+
+            let startDate = new Date(`${d}T${t1}`);
+            let endDate = new Date(`${d}T${t2}`);
+            if (endDate <= startDate) { endDate.setDate(endDate.getDate() + 1); }
+
+            const totalMinutes = Math.floor((endDate - startDate) / 60000);
+            const hours = totalMinutes / 60;
+
+            const { data } = await _supabase.rpc('check_stadium_overlap', {
+                target_stadium_id: parseInt(s), target_date: d, target_start: t1, target_end: t2
+            });
+
+            if (data[0].is_booked) {
+                msg.innerText = "Time Slot Taken"; msg.className = "text-red-500 text-[10px] font-black uppercase";
+                dot.className = "status-dot dot-busy"; btn.disabled = true;
+                document.getElementById('price-card').classList.add('hidden');
+            } else {
+                msg.innerText = "Slot Available"; msg.className = "text-green-500 text-[10px] font-black uppercase";
+                dot.className = "status-dot dot-available"; btn.disabled = false;
+                btn.className = "w-full mt-8 bg-indigo-600 text-white font-black py-6 rounded-3xl shadow-xl uppercase cursor-pointer hover:bg-indigo-700";
+                
+                const rate = document.getElementById('stadium').selectedOptions[0].dataset.rate;
+                document.getElementById('total-price').innerText = `${(hours * rate).toFixed(2)} EGP`;
+                document.getElementById('duration-text').innerHTML = `${totalMinutes} Min<br>(${hours.toFixed(1)} hrs)`;
+                document.getElementById('price-card').classList.remove('hidden');
+            }
+        }
+
+        async function book() {
+            try {
+                const { data: c } = await _supabase.from('customer').insert([{ 
+                    email: document.getElementById('email').value, 
+                    password: document.getElementById('pass').value,
+                    state: document.getElementById('state').value, 
+                    gender: document.getElementById('gender').value 
+                }]).select();
+
+                await _supabase.from('customer_phone').insert([{ customer_id: c[0].customer_id, phone_number: document.getElementById('phone').value }]);
+
+                const { data: b } = await _supabase.from('booking').insert([{ 
+                    customer_id: c[0].customer_id, stadium_number: document.getElementById('stadium').value, 
+                    booking_date: document.getElementById('date').value, start_time: document.getElementById('start').value, 
+                    end_time: document.getElementById('end').value, booking_state: 'Confirmed', sport_id: 1
+                }]).select();
+
+                let startDate = new Date(`${document.getElementById('date').value}T${document.getElementById('start').value}`);
+                let endDate = new Date(`${document.getElementById('date').value}T${document.getElementById('end').value}`);
+                if (endDate <= startDate) endDate.setDate(endDate.getDate() + 1);
+                
+                const hours = (endDate - startDate) / 3600000;
+                const rate = document.getElementById('stadium').selectedOptions[0].dataset.rate;
+
+                await _supabase.from('payment').insert([{ 
+                    booking_number: b[0].booking_number, amount: hours * rate, 
+                    method_id: document.getElementById('pay').value, payment_state: 'Paid', payment_date: new Date().toISOString().split('T')[0]
+                }]);
+
+                alert("Reservation Confirmed!"); location.reload();
+            } catch(e) { alert(e.message); }
+        }
+        window.onload = init;
+    </script>
+</body>
+</html>
